@@ -14,4 +14,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nApp closed.")
+        sys.exit(0)
