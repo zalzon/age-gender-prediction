@@ -4,6 +4,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+import cv2
 from PIL import Image, ImageTk, ImageOps
 
 from src.services.mock_predictor import MockPredictionService
@@ -19,7 +20,11 @@ class AgeGenderPredictionApp:
         self.predictor = MockPredictionService()
         self.image_path: Path | None = None
         self.preview_photo: ImageTk.PhotoImage | None = None
+        self.live_capture: cv2.VideoCapture | None = None
+        self.live_job: str | None = None
+        self.live_frame_count = 0
 
+        self.analysis_mode = tk.StringVar(value="upload")
         self.selected_model = tk.StringVar(value="MobileNetV2")
         self.status_text = tk.StringVar(value="Upload an image to begin.")
         self.gender_text = tk.StringVar(value="-")
@@ -29,6 +34,7 @@ class AgeGenderPredictionApp:
 
         self._configure_style()
         self._build_layout()
+        self._refresh_mode_ui()
 
     def _configure_style(self) -> None:
         self.root.configure(background="#f3f6fb")
@@ -74,33 +80,64 @@ class AgeGenderPredictionApp:
         footer.pack(fill="x", pady=(10, 0))
 
     def _build_upload_section(self, parent: ttk.Frame) -> None:
-        ttk.Label(parent, text="Image Input", style="Section.TLabel").pack(anchor="w")
+        # Use grid so the preview is constrained and controls remain visible
+        parent.columnconfigure(0, weight=1)
+
+        ttk.Label(parent, text="Image Input", style="Section.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(
             parent,
-            text="Upload a face image to test the preview and prediction flow.",
+            text="Switch between uploaded image analysis and live webcam analysis.",
             style="Body.TLabel",
             wraplength=470,
             justify="left",
-        ).pack(anchor="w", pady=(6, 12))
+        ).grid(row=1, column=0, sticky="w", pady=(6, 12))
 
-        upload_row = ttk.Frame(parent, style="Card.TFrame")
-        upload_row.pack(fill="x")
+        # Mode selector
+        mode_row = ttk.Frame(parent, style="Card.TFrame")
+        mode_row.grid(row=2, column=0, sticky="w", pady=(0, 12))
+        ttk.Label(mode_row, text="Analysis Mode", style="Section.TLabel").pack(anchor="w")
+        mode_buttons = ttk.Frame(mode_row, style="Card.TFrame")
+        mode_buttons.pack(anchor="w", pady=(4, 0))
+        ttk.Radiobutton(
+            mode_buttons,
+            text="Upload Image",
+            value="upload",
+            variable=self.analysis_mode,
+            style="Ghost.TRadiobutton",
+            command=self._refresh_mode_ui,
+        ).pack(side="left", padx=(0, 18))
+        ttk.Radiobutton(
+            mode_buttons,
+            text="Live Camera",
+            value="live",
+            variable=self.analysis_mode,
+            style="Ghost.TRadiobutton",
+            command=self._refresh_mode_ui,
+        ).pack(side="left")
 
-        ttk.Button(upload_row, text="Upload Image", style="Accent.TButton", command=self._upload_image).pack(side="left")
-        ttk.Label(upload_row, text="PNG, JPG, JPEG, BMP, GIF, WEBP", style="Body.TLabel").pack(side="left", padx=12)
+        # Controls rows (fixed size)
+        self.upload_controls_frame = ttk.Frame(parent, style="Card.TFrame")
+        self.upload_controls_frame.grid(row=3, column=0, sticky="w")
+        ttk.Button(self.upload_controls_frame, text="Upload Image", style="Accent.TButton", command=self._upload_image).pack(side="left")
+        ttk.Label(self.upload_controls_frame, text="PNG, JPG, JPEG, BMP, GIF, WEBP", style="Body.TLabel").pack(side="left", padx=12)
+
+        self.live_controls_frame = ttk.Frame(parent, style="Card.TFrame")
+        # live controls are created but hidden until needed
+        ttk.Button(self.live_controls_frame, text="Start Live Analysis", style="Accent.TButton", command=self._start_live_analysis).pack(side="left")
+        ttk.Button(self.live_controls_frame, text="Stop", style="Accent.TButton", command=self._stop_live_analysis).pack(side="left", padx=(10, 0))
 
         selector_frame = ttk.Frame(parent, style="Card.TFrame")
-        selector_frame.pack(fill="x")
-
-        ttk.Label(selector_frame, text="Choose Model", style="Section.TLabel").pack(anchor="w")
+        selector_frame.grid(row=4, column=0, sticky="we", pady=(8, 8))
+        selector_frame.columnconfigure(0, weight=1)
+        ttk.Label(selector_frame, text="Choose Model", style="Section.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(
             selector_frame,
             text="Pick one model for the mock comparison.",
             style="Body.TLabel",
-        ).pack(anchor="w", pady=(4, 10))
+        ).grid(row=1, column=0, sticky="w", pady=(4, 10))
 
         radio_row = ttk.Frame(selector_frame, style="Card.TFrame")
-        radio_row.pack(anchor="w")
+        radio_row.grid(row=2, column=0, sticky="w")
         ttk.Radiobutton(
             radio_row,
             text="MobileNetV2",
@@ -117,14 +154,16 @@ class AgeGenderPredictionApp:
         ).pack(side="left")
 
         action_row = ttk.Frame(parent, style="Card.TFrame")
-        action_row.pack(fill="x", pady=(14, 0))
+        action_row.grid(row=5, column=0, sticky="we", pady=(6, 0))
+        action_row.columnconfigure(0, weight=1)
+        ttk.Button(action_row, text="Predict", style="Accent.TButton", command=self._predict).grid(row=0, column=0, sticky="we")
 
-        ttk.Button(action_row, text="Predict", style="Accent.TButton", command=self._predict).pack(fill="x")
-
+        # Preview gets the flexible remaining space so it cannot push controls away
         preview_frame = ttk.Frame(parent, style="Card.TFrame")
-        preview_frame.pack(fill="x", pady=(16, 0))
+        preview_frame.grid(row=6, column=0, sticky="nsew", pady=(12, 0))
+        parent.rowconfigure(6, weight=1)
         preview_frame.configure(height=300)
-        preview_frame.pack_propagate(False)
+        preview_frame.grid_propagate(False)
         preview_frame.columnconfigure(0, weight=1)
         preview_frame.rowconfigure(1, weight=1)
 
@@ -175,6 +214,15 @@ class AgeGenderPredictionApp:
         )
         note.pack(anchor="w")
 
+        self.live_status_text = tk.StringVar(value="Live analysis is off.")
+        ttk.Label(
+            result_card,
+            textvariable=self.live_status_text,
+            style="Body.TLabel",
+            wraplength=340,
+            justify="left",
+        ).pack(anchor="w", pady=(12, 0))
+
     def _add_result_row(self, parent: ttk.Frame, label: str, variable: tk.StringVar) -> None:
         row = ttk.Frame(parent, style="Card.TFrame")
         row.pack(fill="x", pady=8)
@@ -184,6 +232,10 @@ class AgeGenderPredictionApp:
         ttk.Label(row, textvariable=variable, style="ResultValue.TLabel").grid(row=0, column=1, sticky="e")
 
     def _upload_image(self) -> None:
+        if self.analysis_mode.get() == "live":
+            self.analysis_mode.set("upload")
+            self._refresh_mode_ui()
+
         file_path = filedialog.askopenfilename(
             title="Select an image",
             filetypes=[
@@ -220,5 +272,85 @@ class AgeGenderPredictionApp:
         self.model_text.set(result.selected_model)
         self.status_text.set(f"Mock prediction generated for {self.image_path.name}.")
 
+    def _refresh_mode_ui(self) -> None:
+        if self.analysis_mode.get() == "live":
+            try:
+                self.upload_controls_frame.grid_remove()
+            except Exception:
+                pass
+            # show live controls
+            self.live_controls_frame.grid(row=3, column=0, sticky="w")
+            self.preview_label.configure(text="Live camera is stopped.", image="")
+            self.live_status_text.set("Live analysis is off.")
+        else:
+            try:
+                self.live_controls_frame.grid_remove()
+            except Exception:
+                pass
+            self.upload_controls_frame.grid(row=3, column=0, sticky="w")
+            if self.live_capture is not None:
+                self._stop_live_analysis()
+
+    def _start_live_analysis(self) -> None:
+        if self.live_capture is not None:
+            return
+
+        capture = cv2.VideoCapture(0)
+        if not capture.isOpened():
+            messagebox.showerror("Camera Error", "Could not open the webcam.")
+            capture.release()
+            self.live_status_text.set("Live analysis could not start.")
+            return
+
+        self.live_capture = capture
+        self.live_frame_count = 0
+        self.status_text.set("Live analysis started.")
+        self.live_status_text.set("Live analysis running.")
+        self._update_live_frame()
+
+    def _update_live_frame(self) -> None:
+        if self.live_capture is None:
+            return
+
+        success, frame = self.live_capture.read()
+        if not success:
+            self.live_status_text.set("Live camera stopped sending frames.")
+            self._stop_live_analysis()
+            return
+
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(frame_rgb)
+        preview = ImageOps.contain(pil_image, (380, 260))
+        self.preview_photo = ImageTk.PhotoImage(preview)
+        self.preview_label.configure(image=self.preview_photo, text="")
+
+        self.live_frame_count += 1
+        if self.live_frame_count % 2 == 0:
+            result = self.predictor.predict(self.selected_model.get())
+            self.gender_text.set(result.predicted_gender)
+            self.age_group_text.set(result.predicted_age_group)
+            self.confidence_text.set(f"{result.confidence_score:.2f}%")
+            self.model_text.set(result.selected_model)
+
+        self.live_status_text.set("Live analysis running.")
+        self.status_text.set("Live camera frame updated.")
+        self.live_job = self.root.after(500, self._update_live_frame)
+
+    def _stop_live_analysis(self) -> None:
+        if self.live_job is not None:
+            self.root.after_cancel(self.live_job)
+            self.live_job = None
+
+        if self.live_capture is not None:
+            self.live_capture.release()
+            self.live_capture = None
+
+        self.live_status_text.set("Live analysis is off.")
+        if self.analysis_mode.get() == "live":
+            self.preview_label.configure(text="Live camera is stopped.", image="")
+
     def run(self) -> None:
-        self.root.mainloop()
+        try:
+            self.root.mainloop()
+        finally:
+            self._stop_live_analysis()
