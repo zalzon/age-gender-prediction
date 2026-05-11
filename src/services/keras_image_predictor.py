@@ -81,6 +81,7 @@ class KerasImagePredictionService:
 
     def _preprocess_image(self, image_path: Path | str) -> np.ndarray:
         image = Image.open(Path(image_path)).convert("RGB")
-        image = image.resize(self.image_size, Image.Resampling.BILINEAR)
+        # Use BICUBIC to match Keras's load_img default preprocessing
+        image = image.resize(self.image_size, Image.Resampling.BICUBIC)
         image_array = np.asarray(image, dtype=np.float32) / 255.0
         return np.expand_dims(image_array, axis=0)
