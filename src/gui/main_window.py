@@ -15,7 +15,8 @@ class AgeGenderPredictionApp:
     def __init__(self) -> None:
         self.root = tk.Tk()
         self.root.title("Age & Gender Prediction Dashboard")
-        self.root.geometry("1180x720")
+        # Start fullscreen (user can still resize)
+        self.root.state('zoomed')
         self.root.minsize(1000, 640)
 
         self.image_predictor = KerasImagePredictionService()
@@ -48,11 +49,12 @@ class AgeGenderPredictionApp:
 
         style.configure("App.TFrame", background="#f3f6fb")
         style.configure("Card.TFrame", background="#ffffff", relief="flat")
-        style.configure("Section.TLabel", background="#ffffff", foreground="#16324a", font=("Segoe UI", 14, "bold"))
-        style.configure("Body.TLabel", background="#ffffff", foreground="#3f4b5a", font=("Segoe UI", 10))
+        style.configure("Section.TLabel", background="#ffffff", foreground="#16324a", font=("Segoe UI", 15, "bold"))
+        style.configure("ResultsTitle.TLabel", background="#ffffff", foreground="#16324a", font=("Segoe UI", 18, "bold"))
+        style.configure("Body.TLabel", background="#ffffff", foreground="#3f4b5a", font=("Segoe UI", 11))
         style.configure("Status.TLabel", background="#f3f6fb", foreground="#5b6574", font=("Segoe UI", 10))
-        style.configure("ResultValue.TLabel", background="#ffffff", foreground="#0f172a", font=("Segoe UI", 16, "bold"))
-        style.configure("ResultName.TLabel", background="#ffffff", foreground="#6b7280", font=("Segoe UI", 10))
+        style.configure("ResultValue.TLabel", background="#ffffff", foreground="#0f172a", font=("Segoe UI", 15, "bold"))
+        style.configure("ResultName.TLabel", background="#ffffff", foreground="#334155", font=("Segoe UI", 11, "bold"))
         style.configure("Accent.TButton", font=("Segoe UI", 10, "bold"), padding=(18, 11))
         style.map(
             "Accent.TButton",
@@ -62,19 +64,19 @@ class AgeGenderPredictionApp:
         style.configure("Ghost.TRadiobutton", background="#ffffff", foreground="#334155", font=("Segoe UI", 10))
 
     def _build_layout(self) -> None:
-        container = ttk.Frame(self.root, style="App.TFrame", padding=18)
+        container = ttk.Frame(self.root, style="App.TFrame", padding=12)
         container.pack(fill="both", expand=True)
 
         body = ttk.Frame(container, style="App.TFrame")
         body.pack(fill="both", expand=True)
-        body.columnconfigure(0, weight=5)
-        body.columnconfigure(1, weight=4)
+        body.columnconfigure(0, weight=1)
+        body.columnconfigure(1, weight=1)
         body.rowconfigure(0, weight=1)
 
-        left_card = ttk.Frame(body, style="Card.TFrame", padding=20)
-        left_card.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
-        right_card = ttk.Frame(body, style="Card.TFrame", padding=20)
-        right_card.grid(row=0, column=1, sticky="nsew", padx=(12, 0))
+        left_card = ttk.Frame(body, style="Card.TFrame", padding=16)
+        left_card.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        right_card = ttk.Frame(body, style="Card.TFrame", padding=16)
+        right_card.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
 
         self._build_upload_section(left_card)
         self._build_results_section(right_card)
@@ -96,7 +98,7 @@ class AgeGenderPredictionApp:
             parent,
             text="Upload an image for analysis.",
             style="Body.TLabel",
-            wraplength=470,
+            wraplength=430,
             justify="left",
         ).grid(row=1, column=0, sticky="w", pady=(6, 12))
 
@@ -145,7 +147,7 @@ class AgeGenderPredictionApp:
         preview_frame = ttk.Frame(parent, style="Card.TFrame")
         preview_frame.grid(row=6, column=0, sticky="nsew", pady=(12, 0))
         parent.rowconfigure(6, weight=1)
-        preview_frame.configure(height=300)
+        preview_frame.configure(height=320)
         preview_frame.grid_propagate(False)
         preview_frame.columnconfigure(0, weight=1)
         preview_frame.rowconfigure(1, weight=1)
@@ -154,7 +156,7 @@ class AgeGenderPredictionApp:
 
         preview_border = tk.Frame(preview_frame, background="#ffffff", highlightbackground="#dbe3ef", highlightthickness=1)
         preview_border.grid(row=1, column=0, sticky="nsew", pady=(12, 0))
-        preview_border.configure(height=220)
+        preview_border.configure(height=240)
         preview_border.grid_propagate(False)
         preview_border.rowconfigure(0, weight=1)
         preview_border.columnconfigure(0, weight=1)
@@ -169,34 +171,37 @@ class AgeGenderPredictionApp:
         self.preview_label.grid(row=0, column=0, sticky="nsew")
 
     def _build_results_section(self, parent: ttk.Frame) -> None:
-        ttk.Label(parent, text="Results", style="Section.TLabel").pack(anchor="w")
-        ttk.Label(
-            parent,
-            text="Essential results from the selected model.",
-            style="Body.TLabel",
-            wraplength=360,
-            justify="left",
-        ).pack(anchor="w", pady=(6, 14))
+        ttk.Label(parent, text="Results", style="ResultsTitle.TLabel").pack(anchor="w", pady=(0, 10), padx=(2, 0))
 
         result_card = ttk.Frame(parent, style="Card.TFrame", padding=18)
         result_card.pack(fill="both", expand=True)
+        result_card.columnconfigure(0, weight=1)
 
         # Friendly, non-technical result rows
-        self._add_result_row(result_card, "Predicted Gender", self.gender_text)
-        self._add_result_row(result_card, "Gender Confidence", self.gender_confidence_text)
-        self._add_result_row(result_card, "Predicted Age Range", self.age_group_text)
-        self._add_result_row(result_card, "Age Confidence", self.confidence_text)
-        self._add_result_row(result_card, "Model", self.model_text)
+        result_card.rowconfigure(0, weight=1)
+        result_card.rowconfigure(1, weight=1)
+        result_card.rowconfigure(2, weight=1)
+        result_card.rowconfigure(3, weight=1)
+        result_card.rowconfigure(4, weight=1)
+        self._add_result_row(result_card, 0, "Predicted Gender", self.gender_text)
+        self._add_result_row(result_card, 1, "Gender Confidence", self.gender_confidence_text)
+        self._add_result_row(result_card, 2, "Predicted Age Range", self.age_group_text)
+        self._add_result_row(result_card, 3, "Age Confidence", self.confidence_text)
+        self._add_result_row(result_card, 4, "Model", self.model_text)
 
-        # live-mode removed; no live status shown
-
-    def _add_result_row(self, parent: ttk.Frame, label: str, variable: tk.StringVar) -> None:
+    def _add_result_row(self, parent: ttk.Frame, row_index: int, label: str, variable: tk.StringVar) -> None:
         row = ttk.Frame(parent, style="Card.TFrame")
-        row.pack(fill="x", pady=8)
+        row.grid(row=row_index, column=0, sticky="ew", pady=(5, 5))
         row.columnconfigure(0, weight=1)
         row.columnconfigure(1, weight=0)
         ttk.Label(row, text=label, style="ResultName.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Label(row, textvariable=variable, style="ResultValue.TLabel").grid(row=0, column=1, sticky="e")
+        ttk.Label(
+            row,
+            textvariable=variable,
+            style="ResultValue.TLabel",
+            width=12,
+            anchor="e",
+        ).grid(row=0, column=1, sticky="e", padx=(12, 0))
 
     def _upload_image(self) -> None:
         # Upload-only flow
