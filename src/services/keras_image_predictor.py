@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from src.services.mock_predictor import PredictionResult
+from src.services.prediction_result import PredictionResult
 
 
 class KerasImagePredictionService:
@@ -40,6 +40,9 @@ class KerasImagePredictionService:
 
         female_probability = float(np.squeeze(gender_output))
         age_probabilities = np.squeeze(age_output)
+        # expose raw probabilities for richer UI display
+        self.last_gender_prob = female_probability
+        self.last_age_probs = [float(x) for x in age_probabilities]
         age_index = int(np.argmax(age_probabilities))
         age_label = self.age_labels[age_index] if age_index < len(self.age_labels) else str(age_index)
         age_range = self.age_group_ranges.get(age_label, "Unknown")
