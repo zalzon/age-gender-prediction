@@ -7,6 +7,7 @@ from tkinter import filedialog, messagebox, ttk
 import cv2
 from PIL import Image, ImageTk, ImageOps
 
+from src.services.keras_image_predictor import KerasImagePredictionService
 from src.services.mock_predictor import MockPredictionService
 
 
@@ -17,6 +18,7 @@ class AgeGenderPredictionApp:
         self.root.geometry("1180x720")
         self.root.minsize(1000, 640)
 
+        self.image_predictor = KerasImagePredictionService()
         self.predictor = MockPredictionService()
         self.image_path: Path | None = None
         self.preview_photo: ImageTk.PhotoImage | None = None
@@ -132,7 +134,7 @@ class AgeGenderPredictionApp:
         ttk.Label(selector_frame, text="Choose Model", style="Section.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(
             selector_frame,
-            text="Pick one model for the mock comparison.",
+            text="Pick one model for image analysis.",
             style="Body.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(4, 10))
 
@@ -207,7 +209,7 @@ class AgeGenderPredictionApp:
 
         note = ttk.Label(
             result_card,
-            text="Ready for a real model later.",
+            text="Upload-image predictions use the selected model.",
             style="Body.TLabel",
             wraplength=340,
             justify="left",
@@ -265,12 +267,18 @@ class AgeGenderPredictionApp:
             messagebox.showwarning("Missing Image", "Please upload an image before running prediction.")
             return
 
-        result = self.predictor.predict(self.selected_model.get())
+        try:
+            result = self.image_predictor.predict(self.image_path, self.selected_model.get())
+        except (FileNotFoundError, RuntimeError, ValueError) as exc:
+            messagebox.showerror("Model Error", str(exc))
+            self.status_text.set("Image prediction failed.")
+            return
+
         self.gender_text.set(result.predicted_gender)
         self.age_group_text.set(result.predicted_age_group)
         self.confidence_text.set(f"{result.confidence_score:.2f}%")
         self.model_text.set(result.selected_model)
-        self.status_text.set(f"Mock prediction generated for {self.image_path.name}.")
+        self.status_text.set(f"Predicted using {result.selected_model} for {self.image_path.name}.")
 
     def _refresh_mode_ui(self) -> None:
         if self.analysis_mode.get() == "live":
@@ -338,16 +346,22 @@ class AgeGenderPredictionApp:
 
     def _stop_live_analysis(self) -> None:
         if self.live_job is not None:
-            self.root.after_cancel(self.live_job)
+            try:
+                self.root.after_cancel(self.live_job)
+            except tk.TclError:
+                pass
             self.live_job = None
 
         if self.live_capture is not None:
             self.live_capture.release()
             self.live_capture = None
 
-        self.live_status_text.set("Live analysis is off.")
-        if self.analysis_mode.get() == "live":
-            self.preview_label.configure(text="Live camera is stopped.", image="")
+        try:
+            self.live_status_text.set("Live analysis is off.")
+            if self.analysis_mode.get() == "live":
+                self.preview_label.configure(text="Live camera is stopped.", image="")
+        except tk.TclError:
+            pass
 
     def run(self) -> None:
         try:

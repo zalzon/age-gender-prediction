@@ -1,14 +1,14 @@
 # Age & Gender Prediction Dashboard
 
-This repository is the GUI/frontend for our age-group and gender prediction project. The current build is a working prototype: the interface is finished enough for testing, but the actual ML models are still mocked so the team can keep iterating on layout, flow, and integration without blocking on model files.
+This repository is the GUI/frontend for our age-group and gender prediction project. The current build is a working prototype: the interface is finished enough for testing, and the uploaded-image path now uses the saved Keras models from `src/models/`.
 
 ## Current Status
 
 - Tkinter + ttk dashboard is implemented.
 - Image upload and preview work.
 - Model selection is available for `MobileNetV2` and `NASNetMobile`.
-- Prediction output is currently mock data from `src/services/mock_predictor.py`.
-- Live webcam analysis is integrated in the UI and updates the preview/result panel.
+- Upload-image predictions use `src/models/mobilenetv2.h5` and `src/models/nasnetmobile.h5`.
+- Live webcam analysis is still separate and remains on the mock path for now.
 - The webcam flow is intentionally conservative on frame updates, so it may not run at full FPS on every machine.
 
 ## What Is Implemented
@@ -16,22 +16,23 @@ This repository is the GUI/frontend for our age-group and gender prediction proj
 - `src/gui/main_window.py` contains the full dashboard layout.
 - `src/main.py` is the module entry point.
 - `app.py` is the simple launcher.
-- `src/services/mock_predictor.py` returns placeholder gender, age group, confidence, and selected model values.
-- `requirements.txt` includes the UI and webcam dependencies, including `Pillow` and `opencv-python`.
+- `src/services/keras_image_predictor.py` loads the saved Keras models for uploaded-image prediction.
+- `src/services/mock_predictor.py` remains available for the live webcam placeholder flow.
+- `requirements.txt` includes the UI, webcam, and model-loading dependencies.
 
 ## Project Structure
 
 ```text
 AgeGenderPrediction/
-├── app.py
-├── README.md
-├── requirements.txt
-└── src/
-    ├── main.py
-    ├── gui/
-    │   └── main_window.py
-    └── services/
-        └── mock_predictor.py
+app.py
+README.md
+requirements.txt
+src/main.py
+src/models/mobilenetv2.h5
+src/models/nasnetmobile.h5
+src/gui/main_window.py
+src/services/keras_image_predictor.py
+src/services/mock_predictor.py
 ```
 
 ## How To Run
@@ -42,6 +43,8 @@ AgeGenderPrediction/
    ```bash
    pip install -r requirements.txt
    ```
+
+   The upload-image predictor needs TensorFlow. On Python 3.14, pip will skip TensorFlow because no compatible wheel is available yet. Use Python 3.10-3.12 to enable real model inference.
 
 3. Start the app:
 
@@ -58,6 +61,7 @@ python -m src.main
 ## Notes For The Team
 
 - When we add real models, we should place them in a dedicated `models/` folder and document the exact file name and preprocessing steps.
+- The uploaded-image models expect 224x224 RGB input and return two outputs: gender and age group.
 - The current UI is designed so uploaded-image mode and live-camera mode share the same results panel.
 - The live mode is functional, but it is still a prototype and may need threading or lower update intervals if we want smoother FPS.
 
